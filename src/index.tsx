@@ -1,4 +1,4 @@
-import React, { ReactChildren } from "react";
+import React from "react";
 import ReactDOM from "react-dom";
 
 namespace Salvation {
@@ -89,6 +89,7 @@ namespace Salvation {
 
   const OscillatorSectionItem = ({
     children,
+    title,
     style,
     ...props
   }: React.DetailedHTMLProps<
@@ -97,43 +98,73 @@ namespace Salvation {
   >) => (
     <section
       style={{
-        backgroundColor: "#777",
-        border: "1px solid #999",
+        padding: 8,
+        backgroundColor: "#666",
+        border: "1px solid #888",
         ...style,
       }}
     >
+      <header
+        style={{
+          padding: 4,
+          display: "grid",
+          grid: "auto / auto 1fr",
+          gridGap: 8,
+          placeItems: "center left",
+          background: "#555",
+          border: "1px solid #777",
+          borderRadius: 4,
+        }}
+      >
+        <Checkbox />
+        <h2
+          style={{
+            fontSize: 11,
+            lineHeight: 0,
+            fontWeight: "bold",
+            textTransform: "uppercase",
+          }}
+        >
+          {title}
+        </h2>
+      </header>
       {children}
     </section>
   );
 
   const SubOscillatorSection = () => (
-    <OscillatorSectionItem style={{ gridArea: "s" }}>
-      SubOscillatorSection
-    </OscillatorSectionItem>
+    <OscillatorSectionItem
+      title="Sub"
+      style={{ gridArea: "s" }}
+    ></OscillatorSectionItem>
   );
 
   const NoiseSection = () => (
-    <OscillatorSectionItem style={{ gridArea: "n" }}>
-      NoiseSection
-    </OscillatorSectionItem>
+    <OscillatorSectionItem
+      title="Noise"
+      style={{ gridArea: "n" }}
+    ></OscillatorSectionItem>
   );
 
   const OscASection = () => (
-    <OscillatorSectionItem style={{ gridArea: "a" }}>
-      OscASection
-    </OscillatorSectionItem>
+    <OscillatorSectionItem
+      title="Osc A"
+      style={{ gridArea: "a" }}
+    ></OscillatorSectionItem>
   );
 
   const OscBSection = () => (
-    <OscillatorSectionItem style={{ gridArea: "b" }}>
-      OscBSection
-    </OscillatorSectionItem>
+    <OscillatorSectionItem
+      title="Osc B"
+      style={{ gridArea: "b" }}
+    ></OscillatorSectionItem>
   );
 
   const FilterSection = () => (
-    <OscillatorSectionItem style={{ gridArea: "f" }}>
-      FilterSection
-    </OscillatorSectionItem>
+    <OscillatorSectionItem
+      title="Filter"
+      style={{ gridArea: "f" }}
+    ></OscillatorSectionItem>
   );
 
   const ModulationSection = () => (
@@ -142,6 +173,17 @@ namespace Salvation {
 
   const KeyboardSection = () => (
     <section style={{ backgroundColor: "#222" }}>KeyboardSection</section>
+  );
+
+  const Checkbox = () => (
+    <div
+      style={{
+        width: 10,
+        height: 10,
+        border: "1px solid #ccc",
+        backgroundColor: "var(--primary)",
+      }}
+    />
   );
 }
 
