@@ -185,6 +185,22 @@ namespace Salvation {
       }}
     />
   );
+
+  const audioContext = new AudioContext();
+
+  /**
+   * This class is a hack to make Parcel replace URLs properly
+   * and build the audio worklet file as if it was a web worker.
+   * Parcel does some magic when it sees `new Worker("path/to/file")`.
+   * Parcel logs an error at runtime but it doesn't cause any actual issue.
+   */
+  class Worker {
+    constructor(readonly url: string) {
+      audioContext.audioWorklet.addModule(url);
+    }
+  }
+
+  new Worker("./audio.ts");
 }
 
 ReactDOM.render(<Salvation.App />, document.getElementById("app"));
