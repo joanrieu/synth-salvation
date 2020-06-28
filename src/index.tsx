@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import { observable, autorun } from "mobx";
+import { observable, autorun, when } from "mobx";
 import { observer } from "mobx-react";
 import "mobx-react-lite/batchingForReactDom";
 
@@ -17,6 +17,7 @@ namespace Salvation {
       await this.loadAudioWorklet();
       this.initMaster();
       this.initNoise();
+      this.initOsc();
       this.initUI();
     }
 
@@ -50,28 +51,102 @@ namespace Salvation {
       this.masterGainNode.connect(this.audioContext.destination);
     }
 
-    @observable noiseEnabled = false;
-    @observable noiseLevel = 1;
-    noiseNode!: AudioWorkletNode;
-    noiseGainNode!: GainNode;
+    noise!: Noise;
 
     initNoise() {
-      this.noiseNode = new AudioWorkletNode(this.audioContext, "white-noise", {
-        numberOfInputs: 0,
-      });
-      this.noiseGainNode = new GainNode(this.audioContext);
-      autorun(
-        () =>
-          (this.noiseGainNode.gain.value =
-            Number(this.noiseEnabled) * this.noiseLevel)
-      );
-      this.noiseNode.connect(this.noiseGainNode);
-      this.noiseGainNode.connect(this.masterGainNode);
+      this.noise = new Noise(this.audioContext, this.masterGainNode);
+    }
+
+    oscA!: Oscillator;
+    oscB!: Oscillator;
+
+    initOsc() {
+      this.oscA = new Oscillator(this.audioContext, this.masterGainNode);
+      this.oscB = new Oscillator(this.audioContext, this.masterGainNode);
     }
 
     initUI() {
-      ReactDOM.render(<Salvation.App />, document.getElementById("app"));
+      ReactDOM.render(<App />, document.getElementById("app"));
     }
+  }
+
+  class Oscillator {
+    constructor(
+      readonly audioContext: AudioContext,
+      readonly destinationNode: AudioNode
+    ) {
+      this.oscillatorNode.connect(this.levelKnob.gainNode);
+      this.levelKnob.gainNode.connect(this.bypass.node);
+      this.oscillatorNode.start();
+    }
+
+    readonly oscillatorNode = new OscillatorNode(this.audioContext, {
+      type: "sawtooth",
+    });
+
+    readonly bypass = new Bypass(this.audioContext, this.destinationNode);
+
+    readonly unisonKnob = new Knob(this.audioContext, "unison");
+    readonly detuneKnob = new Knob(this.audioContext, "detune");
+    readonly blendKnob = new Knob(this.audioContext, "blend");
+    readonly phaseKnob = new Knob(this.audioContext, "phase");
+    readonly randKnob = new Knob(this.audioContext, "rand");
+    readonly wtPosKnob = new Knob(this.audioContext, "wtPos");
+    readonly panKnob = new Knob(this.audioContext, "pan");
+    readonly levelKnob = new Knob(this.audioContext, "level");
+  }
+
+  class Noise {
+    constructor(
+      readonly audioContext: AudioContext,
+      readonly destinationNode: AudioNode
+    ) {
+      this.noiseNode.connect(this.noiseLevelKnob.gainNode);
+      this.noiseLevelKnob.gainNode.connect(this.bypass.node);
+    }
+
+    readonly bypass = new Bypass(this.audioContext, this.destinationNode);
+    readonly noiseNode = new AudioWorkletNode(
+      this.audioContext,
+      "white-noise",
+      {
+        numberOfInputs: 0,
+      }
+    );
+    readonly noiseLevelKnob = new Knob(this.audioContext, "level");
+  }
+
+  class Bypass {
+    constructor(
+      readonly audioContext: AudioContext,
+      readonly destinationNode: AudioNode
+    ) {
+      when(
+        () => !this.enabled,
+        () => {
+          autorun(() => {
+            if (this.enabled) {
+              this.node.disconnect(destinationNode);
+            } else {
+              this.node.connect(destinationNode);
+            }
+          });
+        }
+      );
+    }
+
+    @observable enabled = true;
+    readonly node = new GainNode(this.audioContext);
+  }
+
+  class Knob {
+    constructor(readonly audioContext: AudioContext, readonly name: string) {
+      this.constantNode.connect(this.gainNode.gain);
+    }
+
+    @observable value = 0;
+    readonly constantNode = new ConstantSourceNode(this.audioContext);
+    readonly gainNode = new GainNode(this.audioContext);
   }
 
   const state = new State();
@@ -223,24 +298,28 @@ namespace Salvation {
     <OscillatorSectionItem
       title="Noise"
       style={{ gridArea: "n" }}
-      enabled={state.noiseEnabled}
-      onClick={() => (state.noiseEnabled = !state.noiseEnabled)}
+      enabled={!state.noise.bypass.enabled}
+      onClick={() => (state.noise.bypass.enabled = !state.noise.bypass.enabled)}
     ></OscillatorSectionItem>
   ));
 
-  const OscASection = () => (
+  const OscASection = observer(() => (
     <OscillatorSectionItem
       title="Osc A"
       style={{ gridArea: "a" }}
+      enabled={!state.oscA.bypass.enabled}
+      onClick={() => (state.oscA.bypass.enabled = !state.oscA.bypass.enabled)}
     ></OscillatorSectionItem>
-  );
+  ));
 
-  const OscBSection = () => (
+  const OscBSection = observer(() => (
     <OscillatorSectionItem
       title="Osc B"
       style={{ gridArea: "b" }}
+      enabled={!state.oscB.bypass.enabled}
+      onClick={() => (state.oscB.bypass.enabled = !state.oscB.bypass.enabled)}
     ></OscillatorSectionItem>
-  );
+  ));
 
   const FilterSection = () => (
     <OscillatorSectionItem
