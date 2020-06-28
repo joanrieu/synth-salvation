@@ -1,7 +1,81 @@
 import React from "react";
 import ReactDOM from "react-dom";
+import { observable, autorun } from "mobx";
+import { observer } from "mobx-react";
+import "mobx-react-lite/batchingForReactDom";
 
 namespace Salvation {
+  class State {
+    constructor() {
+      this.init();
+    }
+
+    audioContext!: AudioContext;
+
+    async init() {
+      this.audioContext = new AudioContext();
+      await this.loadAudioWorklet();
+      this.initMaster();
+      this.initNoise();
+      this.initUI();
+    }
+
+    loadAudioWorklet() {
+      const { audioContext } = this;
+      let promise!: Promise<void>;
+
+      /**
+       * This class is a hack to make Parcel replace URLs properly
+       * and build the audio worklet file as if it was a web worker.
+       * Parcel does some magic when it sees `new Worker("path/to/file")`.
+       * Parcel logs an error at runtime but it doesn't cause any actual issue.
+       */
+      class Worker {
+        constructor(url: string) {
+          promise = audioContext.audioWorklet.addModule(url);
+        }
+      }
+
+      new Worker("./audio.ts");
+
+      return promise;
+    }
+
+    @observable masterLevel = 1;
+    @observable masterGainNode!: GainNode;
+
+    initMaster() {
+      this.masterGainNode = new GainNode(this.audioContext);
+      autorun(() => (this.masterGainNode.gain.value = this.masterLevel));
+      this.masterGainNode.connect(this.audioContext.destination);
+    }
+
+    @observable noiseEnabled = false;
+    @observable noiseLevel = 1;
+    noiseNode!: AudioWorkletNode;
+    noiseGainNode!: GainNode;
+
+    initNoise() {
+      this.noiseNode = new AudioWorkletNode(this.audioContext, "white-noise", {
+        numberOfInputs: 0,
+      });
+      this.noiseGainNode = new GainNode(this.audioContext);
+      autorun(
+        () =>
+          (this.noiseGainNode.gain.value =
+            Number(this.noiseEnabled) * this.noiseLevel)
+      );
+      this.noiseNode.connect(this.noiseGainNode);
+      this.noiseGainNode.connect(this.masterGainNode);
+    }
+
+    initUI() {
+      ReactDOM.render(<Salvation.App />, document.getElementById("app"));
+    }
+  }
+
+  const state = new State();
+
   export const App = () => (
     <main
       style={{
@@ -48,6 +122,7 @@ namespace Salvation {
         border: "1px solid #444",
         ...style,
       }}
+      {...props}
     >
       {children}
     </section>
@@ -74,7 +149,7 @@ namespace Salvation {
     <section
       style={{
         display: "grid",
-        grid: "2fr 3fr / 2fr 5fr 5fr 4fr",
+        grid: "2fr 3fr / 3fr 5fr 5fr 4fr",
         gridTemplateAreas: "'s a b f' 'n a b f'",
         gridGap: 2,
       }}
@@ -90,19 +165,23 @@ namespace Salvation {
   const OscillatorSectionItem = ({
     children,
     title,
+    enabled,
+    onClick,
     style,
     ...props
-  }: React.DetailedHTMLProps<
-    React.HTMLAttributes<HTMLElement>,
-    HTMLElement
-  >) => (
+  }: React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+    enabled: boolean;
+  }) => (
     <section
       style={{
         padding: 8,
         backgroundColor: "#666",
         border: "1px solid #888",
+        filter: enabled ? "" : "grayscale(1)",
+        opacity: enabled ? 1 : 0.8,
         ...style,
       }}
+      {...props}
     >
       <header
         style={{
@@ -115,6 +194,7 @@ namespace Salvation {
           border: "1px solid #777",
           borderRadius: 4,
         }}
+        {...{ onClick }}
       >
         <Checkbox />
         <h2
@@ -139,12 +219,14 @@ namespace Salvation {
     ></OscillatorSectionItem>
   );
 
-  const NoiseSection = () => (
+  const NoiseSection = observer(() => (
     <OscillatorSectionItem
       title="Noise"
       style={{ gridArea: "n" }}
+      enabled={state.noiseEnabled}
+      onClick={() => (state.noiseEnabled = !state.noiseEnabled)}
     ></OscillatorSectionItem>
-  );
+  ));
 
   const OscASection = () => (
     <OscillatorSectionItem
@@ -185,22 +267,4 @@ namespace Salvation {
       }}
     />
   );
-
-  const audioContext = new AudioContext();
-
-  /**
-   * This class is a hack to make Parcel replace URLs properly
-   * and build the audio worklet file as if it was a web worker.
-   * Parcel does some magic when it sees `new Worker("path/to/file")`.
-   * Parcel logs an error at runtime but it doesn't cause any actual issue.
-   */
-  class Worker {
-    constructor(readonly url: string) {
-      audioContext.audioWorklet.addModule(url);
-    }
-  }
-
-  new Worker("./audio.ts");
 }
-
-ReactDOM.render(<Salvation.App />, document.getElementById("app"));
