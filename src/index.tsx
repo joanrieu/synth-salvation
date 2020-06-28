@@ -11,19 +11,29 @@ namespace Salvation {
     }
 
     audioContext!: AudioContext;
+    master!: Knob;
+    noise!: Noise;
+    oscA!: Oscillator;
+    oscB!: Oscillator;
 
     async init() {
+      // TODO handle context creation failure
       this.audioContext = new AudioContext();
+
       await this.loadAudioWorklet();
-      this.initMaster();
-      this.initNoise();
-      this.initOsc();
-      this.initUI();
+
+      this.master = new Knob(this.audioContext, "master");
+      this.noise = new Noise(this.audioContext, this.master.gainNode);
+      this.oscA = new Oscillator(this.audioContext, this.master.gainNode);
+      this.oscB = new Oscillator(this.audioContext, this.master.gainNode);
+
+      this.master.gainNode.connect(this.audioContext.destination);
+
+      ReactDOM.render(<App />, document.getElementById("app"));
     }
 
     loadAudioWorklet() {
-      const { audioContext } = this;
-      let promise!: Promise<void>;
+      const { audioWorklet } = this.audioContext;
 
       /**
        * This class is a hack to make Parcel replace URLs properly
@@ -32,41 +42,11 @@ namespace Salvation {
        * Parcel logs an error at runtime but it doesn't cause any actual issue.
        */
       class Worker {
-        constructor(url: string) {
-          promise = audioContext.audioWorklet.addModule(url);
-        }
+        constructor(readonly url: string) {}
+        promise = audioWorklet.addModule(this.url);
       }
 
-      new Worker("./audio.ts");
-
-      return promise;
-    }
-
-    @observable masterLevel = 1;
-    @observable masterGainNode!: GainNode;
-
-    initMaster() {
-      this.masterGainNode = new GainNode(this.audioContext);
-      autorun(() => (this.masterGainNode.gain.value = this.masterLevel));
-      this.masterGainNode.connect(this.audioContext.destination);
-    }
-
-    noise!: Noise;
-
-    initNoise() {
-      this.noise = new Noise(this.audioContext, this.masterGainNode);
-    }
-
-    oscA!: Oscillator;
-    oscB!: Oscillator;
-
-    initOsc() {
-      this.oscA = new Oscillator(this.audioContext, this.masterGainNode);
-      this.oscB = new Oscillator(this.audioContext, this.masterGainNode);
-    }
-
-    initUI() {
-      ReactDOM.render(<App />, document.getElementById("app"));
+      return new Worker("./audio.ts").promise;
     }
   }
 
