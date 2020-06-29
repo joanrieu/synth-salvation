@@ -13,6 +13,7 @@ namespace Salvation {
 
       audioContext!: AudioContext;
       master!: Master;
+      sub!: Sub;
       noise!: Noise;
       oscA!: Oscillator;
       oscB!: Oscillator;
@@ -27,6 +28,7 @@ namespace Salvation {
           this.audioContext,
           this.audioContext.destination
         );
+        this.sub = new Sub(this.audioContext, this.master.node);
         this.noise = new Noise(this.audioContext, this.master.node);
         this.oscA = new Oscillator(this.audioContext, this.master.node);
         this.oscB = new Oscillator(this.audioContext, this.master.node);
@@ -116,7 +118,6 @@ namespace Salvation {
       }
 
       readonly bypass = new Bypass(this.audioContext, this.destinationNode);
-
       readonly frequencyKnob = new Knob(this.audioContext, "frequency");
       readonly unisonKnob = new Knob(this.audioContext, "unison");
       readonly detuneKnob = new Knob(this.audioContext, "detune");
@@ -128,24 +129,47 @@ namespace Salvation {
       readonly levelKnob = new Knob(this.audioContext, "level");
     }
 
+    class Sub {
+      constructor(
+        readonly audioContext: AudioContext,
+        readonly destinationNode: AudioNode
+      ) {
+        const oscNode = new OscillatorNode(audioContext);
+        oscNode.frequency.value = 0;
+        this.frequencyKnob.constantNode.connect(oscNode.frequency);
+        oscNode.connect(this.levelKnob.gainNode);
+        this.levelKnob.gainNode.connect(this.bypass.node);
+        oscNode.start();
+      }
+
+      readonly bypass = new Bypass(this.audioContext, this.destinationNode);
+      readonly frequencyKnob = new Knob(this.audioContext, "frequency");
+      readonly panKnob = new Knob(this.audioContext, "pan");
+      readonly levelKnob = new Knob(this.audioContext, "level");
+    }
+
     class Noise {
       constructor(
         readonly audioContext: AudioContext,
         readonly destinationNode: AudioNode
       ) {
-        this.noiseNode.connect(this.noiseLevelKnob.gainNode);
-        this.noiseLevelKnob.gainNode.connect(this.bypass.node);
+        const noiseNode = new AudioWorkletNode(
+          this.audioContext,
+          "white-noise",
+          {
+            numberOfInputs: 0,
+          }
+        );
+        noiseNode.connect(this.levelKnob.gainNode);
+        this.levelKnob.gainNode.connect(this.bypass.node);
       }
 
       readonly bypass = new Bypass(this.audioContext, this.destinationNode);
-      readonly noiseNode = new AudioWorkletNode(
-        this.audioContext,
-        "white-noise",
-        {
-          numberOfInputs: 0,
-        }
-      );
-      readonly noiseLevelKnob = new Knob(this.audioContext, "level");
+      readonly phaseKnob = new Knob(this.audioContext, "phase");
+      readonly randKnob = new Knob(this.audioContext, "rand");
+      readonly pitchKnob = new Knob(this.audioContext, "pitch");
+      readonly panKnob = new Knob(this.audioContext, "pan");
+      readonly levelKnob = new Knob(this.audioContext, "level");
     }
 
     class Bypass {
@@ -355,12 +379,27 @@ namespace Salvation {
       </section>
     );
 
-    const SubOscillatorSection = () => (
+    const SubOscillatorSection = observer(() => (
       <OscillatorSectionItem
         title="Sub"
         style={{ gridArea: "s" }}
-      ></OscillatorSectionItem>
-    );
+        enabled={!state.sub.bypass.enabled}
+        onClick={() => (state.sub.bypass.enabled = !state.sub.bypass.enabled)}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gridGap: 8,
+            margin: "8px 0",
+          }}
+        >
+          <Knob knob={state.sub.frequencyKnob} />
+          <Knob knob={state.sub.panKnob} />
+          <Knob knob={state.sub.levelKnob} />
+        </div>
+      </OscillatorSectionItem>
+    ));
 
     const NoiseSection = observer(() => (
       <OscillatorSectionItem
@@ -371,7 +410,20 @@ namespace Salvation {
           (state.noise.bypass.enabled = !state.noise.bypass.enabled)
         }
       >
-        <Knob knob={state.noise.noiseLevelKnob} />
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gridGap: 8,
+            margin: "8px 0",
+          }}
+        >
+          <Knob knob={state.noise.phaseKnob} />
+          <Knob knob={state.noise.randKnob} />
+          <Knob knob={state.noise.pitchKnob} />
+          <Knob knob={state.noise.panKnob} />
+          <Knob knob={state.noise.levelKnob} />
+        </div>
       </OscillatorSectionItem>
     ));
 
@@ -385,7 +437,7 @@ namespace Salvation {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
+            gridTemplateColumns: "repeat(5, 1fr)",
             gridGap: 8,
             margin: "8px 0",
           }}
@@ -413,7 +465,30 @@ namespace Salvation {
         style={{ gridArea: "b" }}
         enabled={!state.oscB.bypass.enabled}
         onClick={() => (state.oscB.bypass.enabled = !state.oscB.bypass.enabled)}
-      ></OscillatorSectionItem>
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(5, 1fr)",
+            gridGap: 8,
+            margin: "8px 0",
+          }}
+        >
+          <Knob knob={state.oscB.unisonKnob} />
+          <Knob knob={state.oscB.detuneKnob} />
+          <Knob knob={state.oscB.blendKnob} />
+
+          <Knob knob={state.oscB.phaseKnob} />
+          <Knob knob={state.oscB.randKnob} />
+
+          <Knob knob={state.oscB.wtPosKnob} />
+
+          <Knob knob={state.oscB.levelKnob} />
+          <Knob knob={state.oscB.panKnob} />
+
+          <Knob knob={state.oscB.frequencyKnob} />
+        </div>
+      </OscillatorSectionItem>
     ));
 
     const FilterSection = () => (
@@ -496,11 +571,12 @@ namespace Salvation {
               border: "1px solid #777",
               borderRadius: 2,
               textTransform: "uppercase",
-              fontSize: 9,
-              padding: "2px 4px",
+              fontSize: 7,
+              padding: "1px 4px",
               textAlign: "center",
               overflow: "hidden",
               textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
               width: "100%",
             }}
           >
