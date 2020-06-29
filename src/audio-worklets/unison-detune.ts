@@ -11,7 +11,8 @@ class UnisonDetune extends AudioWorkletProcessor {
       count: [count],
     } = parameters;
     const [[detune], [gain]] = outputs;
-    const position = index - (count - 1) / 2;
+    const center = (count - 1) / 2;
+    const position = (index - center) / Math.max(1, center);
     const isCenter = Math.abs(position) < 1;
     if (index < count) {
       for (let i = 0; i < detune.length; ++i) {
@@ -51,21 +52,3 @@ class UnisonDetune extends AudioWorkletProcessor {
 }
 
 registerProcessor("unison-detune", UnisonDetune);
-
-class WhiteNoise extends AudioWorkletProcessor {
-  process(
-    inputs: Float32Array[][],
-    outputs: Float32Array[][],
-    parameters: Record<string, Float32Array>
-  ): boolean {
-    const output = outputs[0];
-    for (const channel of output) {
-      for (let i = 0; i < channel.length; i++) {
-        channel[i] = Math.random() * 2 - 1;
-      }
-    }
-    return true;
-  }
-}
-
-registerProcessor("white-noise", WhiteNoise);
