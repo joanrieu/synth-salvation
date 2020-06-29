@@ -13,6 +13,7 @@ namespace Salvation {
 
       audioContext!: AudioContext;
       master!: Master;
+      filter!: Filter;
       sub!: Sub;
       noise!: Noise;
       oscA!: Oscillator;
@@ -28,10 +29,11 @@ namespace Salvation {
           this.audioContext,
           this.audioContext.destination
         );
-        this.sub = new Sub(this.audioContext, this.master.node);
-        this.noise = new Noise(this.audioContext, this.master.node);
-        this.oscA = new Oscillator(this.audioContext, this.master.node);
-        this.oscB = new Oscillator(this.audioContext, this.master.node);
+        this.filter = new Filter(this.audioContext, this.master.node);
+        this.sub = new Sub(this.audioContext, this.filter.inputNode);
+        this.noise = new Noise(this.audioContext, this.filter.inputNode);
+        this.oscA = new Oscillator(this.audioContext, this.filter.inputNode);
+        this.oscB = new Oscillator(this.audioContext, this.filter.inputNode);
 
         UI.init();
       }
@@ -114,7 +116,7 @@ namespace Salvation {
           blendNode.connect(this.levelKnob.gainNode);
           oscNode.start();
         }
-        this.levelKnob.gainNode.connect(this.bypass.node);
+        this.levelKnob.gainNode.connect(this.bypass.inputNode);
       }
 
       readonly bypass = new Bypass(this.audioContext, this.destinationNode);
@@ -138,7 +140,7 @@ namespace Salvation {
         oscNode.frequency.value = 0;
         this.frequencyKnob.constantNode.connect(oscNode.frequency);
         oscNode.connect(this.levelKnob.gainNode);
-        this.levelKnob.gainNode.connect(this.bypass.node);
+        this.levelKnob.gainNode.connect(this.bypass.inputNode);
         oscNode.start();
       }
 
@@ -161,7 +163,7 @@ namespace Salvation {
           }
         );
         noiseNode.connect(this.levelKnob.gainNode);
-        this.levelKnob.gainNode.connect(this.bypass.node);
+        this.levelKnob.gainNode.connect(this.bypass.inputNode);
       }
 
       readonly bypass = new Bypass(this.audioContext, this.destinationNode);
@@ -172,27 +174,55 @@ namespace Salvation {
       readonly levelKnob = new Knob(this.audioContext, "level");
     }
 
-    class Bypass {
+    class Filter {
       constructor(
         readonly audioContext: AudioContext,
         readonly destinationNode: AudioNode
       ) {
-        when(
-          () => !this.enabled,
-          () => {
-            autorun(() => {
-              if (this.enabled) {
-                this.node.disconnect(destinationNode);
-              } else {
-                this.node.connect(destinationNode);
-              }
-            });
-          }
-        );
+        this.inputNode.connect(this.bypass.passthroughInputNode);
+        const lpfNode = new BiquadFilterNode(audioContext, { type: "lowpass" });
+        this.inputNode.connect(lpfNode);
+        lpfNode.frequency.value = 0;
+        this.cutoffKnob.constantNode.connect(lpfNode.frequency);
+        lpfNode.Q.value = 0;
+        this.resKnob.constantNode.connect(lpfNode.Q);
+        lpfNode.connect(this.mixKnob.gainNode);
+        this.mixKnob.gainNode.connect(this.bypass.inputNode);
+
+        const reverseMixNode = new GainNode(audioContext, { gain: 1 });
+        this.inputNode.connect(reverseMixNode);
+        reverseMixNode.connect(this.bypass.inputNode);
+        const oppositeNode = new GainNode(audioContext, { gain: -1 });
+        this.mixKnob.constantNode.connect(oppositeNode);
+        oppositeNode.connect(reverseMixNode.gain);
+      }
+
+      readonly bypass = new Bypass(this.audioContext, this.destinationNode);
+      readonly inputNode = new GainNode(this.audioContext);
+      readonly cutoffKnob = new Knob(this.audioContext, "cutoff");
+      readonly resKnob = new Knob(this.audioContext, "res");
+      readonly panKnob = new Knob(this.audioContext, "pan");
+      readonly driveKnob = new Knob(this.audioContext, "drive");
+      readonly fatKnob = new Knob(this.audioContext, "fat");
+      readonly mixKnob = new Knob(this.audioContext, "mix");
+    }
+
+    export class Bypass {
+      constructor(
+        readonly audioContext: AudioContext,
+        readonly destinationNode: AudioNode
+      ) {
+        this.inputNode.connect(destinationNode);
+        this.passthroughInputNode.connect(destinationNode);
+        autorun(() => {
+          this.passthroughInputNode.gain.value = Number(this.enabled);
+          this.inputNode.gain.value = Number(!this.enabled);
+        });
       }
 
       @observable enabled = true;
-      readonly node = new GainNode(this.audioContext);
+      readonly passthroughInputNode = new GainNode(this.audioContext);
+      readonly inputNode = new GainNode(this.audioContext);
     }
 
     export class Knob {
@@ -329,62 +359,62 @@ namespace Salvation {
       </section>
     );
 
-    const OscillatorSectionItem = ({
-      children,
-      title,
-      enabled,
-      onClick,
-      style,
-      ...props
-    }: React.DetailedHTMLProps<
-      React.HTMLAttributes<HTMLElement>,
-      HTMLElement
-    > & {
-      enabled: boolean;
-    }) => (
-      <section
-        style={{
-          padding: 8,
-          backgroundColor: "#666",
-          border: "1px solid #888",
-          ...style,
-        }}
-        {...props}
-      >
-        <header
+    const OscillatorSectionItem = observer(
+      ({
+        title,
+        bypass,
+        children,
+        style,
+        ...props
+      }: React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement>,
+        HTMLElement
+      > & {
+        bypass: Audio.Bypass;
+      }) => (
+        <section
           style={{
-            padding: 4,
-            display: "grid",
-            grid: "auto / auto 1fr",
-            gridGap: 8,
-            placeItems: "center left",
-            background: "#555",
-            border: "1px solid #777",
-            borderRadius: 4,
+            padding: 8,
+            backgroundColor: "#666",
+            border: "1px solid #888",
+            ...style,
           }}
-          {...{ onClick }}
+          {...props}
         >
-          <Checkbox enabled={enabled} />
-          <h2
+          <header
             style={{
-              fontSize: 11,
-              lineHeight: 0,
-              textTransform: "uppercase",
+              padding: 4,
+              display: "grid",
+              grid: "auto / auto 1fr",
+              gridGap: 8,
+              placeItems: "center left",
+              background: "#555",
+              border: "1px solid #777",
+              borderRadius: 4,
             }}
+            onClick={() => (bypass.enabled = !bypass.enabled)}
           >
-            {title}
-          </h2>
-        </header>
-        {children}
-      </section>
+            <Checkbox enabled={!bypass.enabled} />
+            <h2
+              style={{
+                fontSize: 11,
+                lineHeight: 0,
+                textTransform: "uppercase",
+              }}
+            >
+              {title}
+            </h2>
+          </header>
+          {children}
+        </section>
+      )
     );
 
     const SubOscillatorSection = observer(() => (
       <OscillatorSectionItem
         title="Sub"
+        bypass={state.sub.bypass}
         style={{ gridArea: "s" }}
-        enabled={!state.sub.bypass.enabled}
-        onClick={() => (state.sub.bypass.enabled = !state.sub.bypass.enabled)}
       >
         <div
           style={{
@@ -404,11 +434,8 @@ namespace Salvation {
     const NoiseSection = observer(() => (
       <OscillatorSectionItem
         title="Noise"
+        bypass={state.noise.bypass}
         style={{ gridArea: "n" }}
-        enabled={!state.noise.bypass.enabled}
-        onClick={() =>
-          (state.noise.bypass.enabled = !state.noise.bypass.enabled)
-        }
       >
         <div
           style={{
@@ -430,9 +457,8 @@ namespace Salvation {
     const OscASection = observer(() => (
       <OscillatorSectionItem
         title="Osc A"
+        bypass={state.oscA.bypass}
         style={{ gridArea: "a" }}
-        enabled={!state.oscA.bypass.enabled}
-        onClick={() => (state.oscA.bypass.enabled = !state.oscA.bypass.enabled)}
       >
         <div
           style={{
@@ -462,9 +488,8 @@ namespace Salvation {
     const OscBSection = observer(() => (
       <OscillatorSectionItem
         title="Osc B"
+        bypass={state.oscB.bypass}
         style={{ gridArea: "b" }}
-        enabled={!state.oscB.bypass.enabled}
-        onClick={() => (state.oscB.bypass.enabled = !state.oscB.bypass.enabled)}
       >
         <div
           style={{
@@ -494,8 +519,25 @@ namespace Salvation {
     const FilterSection = () => (
       <OscillatorSectionItem
         title="Filter"
+        bypass={state.filter.bypass}
         style={{ gridArea: "f" }}
-      ></OscillatorSectionItem>
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gridGap: 8,
+            margin: "8px 0",
+          }}
+        >
+          <Knob knob={state.filter.cutoffKnob} />
+          <Knob knob={state.filter.resKnob} />
+          <Knob knob={state.filter.panKnob} />
+          <Knob knob={state.filter.driveKnob} />
+          <Knob knob={state.filter.fatKnob} />
+          <Knob knob={state.filter.mixKnob} />
+        </div>
+      </OscillatorSectionItem>
     );
 
     const ModulationSection = () => (
