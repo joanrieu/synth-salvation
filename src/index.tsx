@@ -251,15 +251,21 @@ namespace Salvation {
     );
 
     const AppTitleSection = () => (
-      <HeaderSectionItem>
+      <HeaderSectionItem
+        style={{
+          backgroundImage:
+            "linear-gradient(0deg, var(--primary) -700%, transparent 200%)",
+        }}
+      >
         <h1
           style={{
-            padding: "0 2em",
-            fontSize: 24,
-            letterSpacing: 3,
-            fontWeight: "bold",
-            textTransform: "uppercase",
-            textShadow: "0 0 .5em var(--primary), 0 0 1em var(--primary)",
+            padding: "0 1em",
+            fontSize: 40,
+            textShadow: [
+              "0 0 .5em var(--primary)",
+              "0 0 1em var(--primary)",
+              "1px 1px 1px black",
+            ].join(),
           }}
         >
           Salvation
@@ -293,7 +299,7 @@ namespace Salvation {
             gridColumn: "1 / span 4",
             pointerEvents: "none",
             backgroundImage:
-              "linear-gradient(transparent 65%, rgba(0, 0, 0, .2))",
+              "linear-gradient(transparent 50%, rgba(0, 0, 0, .1), rgba(0, 0, 0, .3))",
           }}
         ></div>
       </section>
@@ -339,7 +345,6 @@ namespace Salvation {
             style={{
               fontSize: 11,
               lineHeight: 0,
-              fontWeight: "bold",
               textTransform: "uppercase",
             }}
           >
@@ -419,11 +424,11 @@ namespace Salvation {
     );
 
     const ModulationSection = () => (
-      <section style={{ backgroundColor: "#222" }}>ModulationSection</section>
+      <section style={{ backgroundColor: "#222" }}></section>
     );
 
     const KeyboardSection = () => (
-      <section style={{ backgroundColor: "#222" }}>KeyboardSection</section>
+      <section style={{ backgroundColor: "#222" }}></section>
     );
 
     const Checkbox = ({ enabled }: { enabled: boolean }) => (
@@ -449,10 +454,11 @@ namespace Salvation {
         const Circle = ({
           children,
           style,
-        }: {
-          children?: React.ReactNode;
-          style?: CSSProperties;
-        }) => (
+          ...props
+        }: React.DetailedHTMLProps<
+          React.HTMLAttributes<HTMLDivElement>,
+          HTMLDivElement
+        >) => (
           <div
             style={{
               gridRow: 1,
@@ -464,6 +470,7 @@ namespace Salvation {
               borderRadius: "100%",
               ...style,
             }}
+            {...props}
           >
             {children}
           </div>
@@ -490,7 +497,6 @@ namespace Salvation {
               borderRadius: 2,
               textTransform: "uppercase",
               fontSize: 9,
-              fontWeight: "bold",
               padding: "2px 4px",
               textAlign: "center",
               overflow: "hidden",
