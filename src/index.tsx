@@ -1,7 +1,7 @@
 import { autorun, observable, when } from "mobx";
 import { observer } from "mobx-react";
 import "mobx-react-lite/batchingForReactDom";
-import React from "react";
+import React, { ReactChild, ReactChildren, CSSProperties } from "react";
 import ReactDOM from "react-dom";
 
 namespace Salvation {
@@ -123,7 +123,7 @@ namespace Salvation {
       readonly blendKnob = new Knob(this.audioContext, "blend");
       readonly phaseKnob = new Knob(this.audioContext, "phase");
       readonly randKnob = new Knob(this.audioContext, "rand");
-      readonly wtPosKnob = new Knob(this.audioContext, "wtPos");
+      readonly wtPosKnob = new Knob(this.audioContext, "wt pos");
       readonly panKnob = new Knob(this.audioContext, "pan");
       readonly levelKnob = new Knob(this.audioContext, "level");
     }
@@ -269,7 +269,7 @@ namespace Salvation {
 
     const MasterSection = () => (
       <HeaderSectionItem>
-        <Knob knob={state.master.knob} />
+        <Knob knob={state.master.knob} style={{ padding: 8 }} />
       </HeaderSectionItem>
     );
 
@@ -287,6 +287,15 @@ namespace Salvation {
         <OscASection />
         <OscBSection />
         <FilterSection />
+        <div
+          style={{
+            gridRow: "1 / span 2",
+            gridColumn: "1 / span 4",
+            pointerEvents: "none",
+            backgroundImage:
+              "linear-gradient(transparent 65%, rgba(0, 0, 0, .2))",
+          }}
+        ></div>
       </section>
     );
 
@@ -308,8 +317,6 @@ namespace Salvation {
           padding: 8,
           backgroundColor: "#666",
           border: "1px solid #888",
-          filter: enabled ? "" : "grayscale(1)",
-          opacity: enabled ? 1 : 0.8,
           ...style,
         }}
         {...props}
@@ -327,7 +334,7 @@ namespace Salvation {
           }}
           {...{ onClick }}
         >
-          <Checkbox />
+          <Checkbox enabled={enabled} />
           <h2
             style={{
               fontSize: 11,
@@ -370,15 +377,28 @@ namespace Salvation {
         enabled={!state.oscA.bypass.enabled}
         onClick={() => (state.oscA.bypass.enabled = !state.oscA.bypass.enabled)}
       >
-        <Knob knob={state.oscA.blendKnob} />
-        <Knob knob={state.oscA.detuneKnob} />
-        <Knob knob={state.oscA.frequencyKnob} />
-        <Knob knob={state.oscA.levelKnob} />
-        <Knob knob={state.oscA.panKnob} />
-        <Knob knob={state.oscA.phaseKnob} />
-        <Knob knob={state.oscA.randKnob} />
-        <Knob knob={state.oscA.unisonKnob} />
-        <Knob knob={state.oscA.wtPosKnob} />
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gridGap: 8,
+            margin: "8px 0",
+          }}
+        >
+          <Knob knob={state.oscA.unisonKnob} />
+          <Knob knob={state.oscA.detuneKnob} />
+          <Knob knob={state.oscA.blendKnob} />
+
+          <Knob knob={state.oscA.phaseKnob} />
+          <Knob knob={state.oscA.randKnob} />
+
+          <Knob knob={state.oscA.wtPosKnob} />
+
+          <Knob knob={state.oscA.levelKnob} />
+          <Knob knob={state.oscA.panKnob} />
+
+          <Knob knob={state.oscA.frequencyKnob} />
+        </div>
       </OscillatorSectionItem>
     ));
 
@@ -406,45 +426,124 @@ namespace Salvation {
       <section style={{ backgroundColor: "#222" }}>KeyboardSection</section>
     );
 
-    const Checkbox = () => (
+    const Checkbox = ({ enabled }: { enabled: boolean }) => (
       <div
         style={{
           width: 10,
           height: 10,
           border: "1px solid #ccc",
-          backgroundColor: "var(--primary)",
+          backgroundColor: enabled ? "var(--primary)" : "#333",
         }}
       />
     );
 
-    const Knob = observer(({ knob }: { knob: Audio.Knob }) => (
-      <label
-        style={{
-          display: "grid",
-          placeItems: "center",
-          padding: 8,
-        }}
-      >
-        <input
-          type="range"
-          min={0}
-          max={
-            knob.name.includes("freq")
-              ? 2000
-              : knob.name.includes("detune")
-              ? 100
-              : knob.name.includes("unison")
-              ? 16
-              : 1
-          }
-          step={0.01}
-          defaultValue={knob.value}
-          onChange={(e) => (knob.value = Number(e.target.value))}
-        />
-        <p>
-          {knob.name} ({knob.value})
-        </p>
-      </label>
-    ));
+    const Knob = observer(
+      ({
+        knob,
+        style,
+        ...props
+      }: React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLDivElement>,
+        HTMLDivElement
+      > & { knob: Audio.Knob }) => {
+        const Circle = ({
+          children,
+          style,
+        }: {
+          children?: React.ReactNode;
+          style?: CSSProperties;
+        }) => (
+          <div
+            style={{
+              gridRow: 1,
+              gridColumn: 1,
+              display: "grid",
+              placeItems: "start center",
+              width: "100%",
+              height: "100%",
+              borderRadius: "100%",
+              ...style,
+            }}
+          >
+            {children}
+          </div>
+        );
+
+        const Pointer = () => (
+          <div
+            style={{
+              width: 2,
+              height: 10,
+              marginTop: 1,
+              background: "#eee",
+              backgroundImage:
+                "linear-gradient(var(--primary) 20%, #333 20%, #333 40%, transparent 40%)",
+            }}
+          ></div>
+        );
+
+        const Label = ({ children }: { children: React.ReactNode }) => (
+          <div
+            style={{
+              background: "#444",
+              border: "1px solid #777",
+              borderRadius: 2,
+              textTransform: "uppercase",
+              fontSize: 9,
+              fontWeight: "bold",
+              padding: "2px 4px",
+              textAlign: "center",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              width: "100%",
+            }}
+          >
+            {children}
+          </div>
+        );
+
+        return (
+          <div
+            style={{
+              display: "grid",
+              gridGap: 4,
+              placeItems: "center",
+              ...style,
+            }}
+            {...props}
+          >
+            <Circle
+              style={{
+                width: 32,
+                height: 32,
+                boxShadow: "2px 4px 8px rgba(0, 0, 0, .5)",
+              }}
+            >
+              <Circle
+                style={{
+                  border: "3px solid #222",
+                }}
+              >
+                <Circle
+                  style={{
+                    border: "1px solid #555",
+                    backgroundImage: "radial-gradient(#444, #222)",
+                  }}
+                />
+              </Circle>
+              <Circle
+                style={{
+                  transform:
+                    "rotate(" + ((knob.value - 0.5) * 270).toFixed(0) + "deg)",
+                }}
+              >
+                <Pointer />
+              </Circle>
+            </Circle>
+            <Label>{knob.name}</Label>
+          </div>
+        );
+      }
+    );
   }
 }
