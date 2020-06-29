@@ -502,6 +502,18 @@ namespace Salvation {
           </div>
         );
 
+        const dragKnob = () => {
+          const listener = (event: MouseEvent) => {
+            const delta = -event.movementY / 200;
+            knob.value = Math.max(0, Math.min(1, knob.value + delta));
+            if (event.type === "mouseup") {
+              window.removeEventListener("mousemove", listener);
+            }
+          };
+          window.addEventListener("mousemove", listener);
+          window.addEventListener("mouseup", listener, { once: true });
+        };
+
         return (
           <div
             style={{
@@ -518,6 +530,7 @@ namespace Salvation {
                 height: 32,
                 boxShadow: "2px 4px 8px rgba(0, 0, 0, .5)",
               }}
+              onMouseDown={dragKnob}
             >
               <Circle
                 style={{
