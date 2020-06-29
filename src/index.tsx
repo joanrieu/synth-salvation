@@ -1,8 +1,8 @@
-import React from "react";
-import ReactDOM from "react-dom";
-import { observable, autorun, when } from "mobx";
+import { autorun, observable, when } from "mobx";
 import { observer } from "mobx-react";
 import "mobx-react-lite/batchingForReactDom";
+import React from "react";
+import ReactDOM from "react-dom";
 
 namespace Salvation {
   class State {
@@ -11,7 +11,7 @@ namespace Salvation {
     }
 
     audioContext!: AudioContext;
-    master!: Knob;
+    master!: Master;
     noise!: Noise;
     oscA!: Oscillator;
     oscB!: Oscillator;
@@ -22,12 +22,13 @@ namespace Salvation {
 
       await this.loadAudioWorklet();
 
-      this.master = new Knob(this.audioContext, "master");
-      this.noise = new Noise(this.audioContext, this.master.gainNode);
-      this.oscA = new Oscillator(this.audioContext, this.master.gainNode);
-      this.oscB = new Oscillator(this.audioContext, this.master.gainNode);
-
-      this.master.gainNode.connect(this.audioContext.destination);
+      this.master = new Master(
+        this.audioContext,
+        this.audioContext.destination
+      );
+      this.noise = new Noise(this.audioContext, this.master.node);
+      this.oscA = new Oscillator(this.audioContext, this.master.node);
+      this.oscB = new Oscillator(this.audioContext, this.master.node);
 
       ReactDOM.render(<App />, document.getElementById("app"));
     }
@@ -50,22 +51,65 @@ namespace Salvation {
     }
   }
 
+  class Master {
+    constructor(
+      readonly audioContext: AudioContext,
+      readonly destinationNode: AudioNode
+    ) {
+      this.node.connect(destinationNode);
+    }
+
+    get node() {
+      return this.knob.gainNode;
+    }
+
+    readonly knob = new Knob(this.audioContext, "master");
+  }
+
   class Oscillator {
     constructor(
       readonly audioContext: AudioContext,
       readonly destinationNode: AudioNode
     ) {
-      this.oscillatorNode.connect(this.levelKnob.gainNode);
+      const maxCount = 16;
+      for (let i = 0; i < maxCount; ++i) {
+        const detuneNode = new AudioWorkletNode(audioContext, "unison-detune", {
+          channelCount: 1,
+          numberOfInputs: 0,
+          numberOfOutputs: 2,
+          parameterData: {
+            index: i,
+          },
+        });
+        const oscNode = new OscillatorNode(this.audioContext, {
+          type: "sawtooth",
+          frequency: 0,
+        });
+        const blendNode = new GainNode(this.audioContext, {
+          gain: 0,
+        });
+        this.detuneKnob.constantNode.connect(
+          detuneNode.parameters.get("detune")!
+        );
+        this.blendKnob.constantNode.connect(
+          detuneNode.parameters.get("blend")!
+        );
+        this.unisonKnob.constantNode.connect(
+          detuneNode.parameters.get("count")!
+        );
+        detuneNode.connect(oscNode.detune, 0);
+        detuneNode.connect(blendNode.gain, 1);
+        this.frequencyKnob.constantNode.connect(oscNode.frequency);
+        oscNode.connect(blendNode);
+        blendNode.connect(this.levelKnob.gainNode);
+        oscNode.start();
+      }
       this.levelKnob.gainNode.connect(this.bypass.node);
-      this.oscillatorNode.start();
     }
-
-    readonly oscillatorNode = new OscillatorNode(this.audioContext, {
-      type: "sawtooth",
-    });
 
     readonly bypass = new Bypass(this.audioContext, this.destinationNode);
 
+    readonly frequencyKnob = new Knob(this.audioContext, "frequency");
     readonly unisonKnob = new Knob(this.audioContext, "unison");
     readonly detuneKnob = new Knob(this.audioContext, "detune");
     readonly blendKnob = new Knob(this.audioContext, "blend");
@@ -122,11 +166,24 @@ namespace Salvation {
   class Knob {
     constructor(readonly audioContext: AudioContext, readonly name: string) {
       this.constantNode.connect(this.gainNode.gain);
+      this.constantNode.start();
     }
 
-    @observable value = 0;
-    readonly constantNode = new ConstantSourceNode(this.audioContext);
-    readonly gainNode = new GainNode(this.audioContext);
+    get value() {
+      return this.constantNode.offset.value;
+    }
+
+    set value(value: number) {
+      this.constantNode.offset.value = value;
+    }
+
+    readonly constantNode = new ConstantSourceNode(this.audioContext, {
+      offset: 0,
+    });
+
+    readonly gainNode = new GainNode(this.audioContext, {
+      gain: 0,
+    });
   }
 
   const state = new State();
