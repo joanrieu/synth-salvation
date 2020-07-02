@@ -1,7 +1,7 @@
-class UnisonDetune extends AudioWorkletProcessor {
+class Unison extends AudioWorkletProcessor {
   process(
     inputs: Float32Array[][],
-    outputs: Float32Array[][],
+    [[detune], [gain]]: Float32Array[][],
     parameters: Record<string, Float32Array>
   ): boolean {
     const {
@@ -10,22 +10,24 @@ class UnisonDetune extends AudioWorkletProcessor {
       index: [index],
       voices: [voices],
     } = parameters;
-    const [[detune], [gain]] = outputs;
-    const center = (voices - 1) / 2;
-    const position = index - center;
-    const isCenter = Math.abs(position) < 1;
+
     if (index < voices) {
+      const middle = voices / 2;
+      const delta = Math.abs(index - middle) < 1;
+      const dual = voices % 2 === 0;
+
       for (let i = 0; i < detune.length; ++i) {
-        detune[i] =
-          ((detuneBase[i] ?? detuneBase[0]) * position) / Math.max(1, center);
+        detune[i] = (detuneBase[i] ?? detuneBase[0]) * (index - middle) * 50;
       }
+
       for (let i = 0; i < gain.length; ++i) {
-        gain[i] = (isCenter ? 1 : blend[i] ?? blend[0]) / voices;
+        gain[i] = delta ? (dual ? 0.5 : 1) : blend[i] ?? blend[0];
       }
     } else {
       detune.fill(0);
       gain.fill(0);
     }
+
     return true;
   }
 
@@ -52,4 +54,4 @@ class UnisonDetune extends AudioWorkletProcessor {
   }
 }
 
-registerProcessor("unison-detune", UnisonDetune);
+registerProcessor("unison", Unison);

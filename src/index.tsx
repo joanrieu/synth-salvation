@@ -53,7 +53,7 @@ namespace Salvation {
         }
 
         return Promise.all([
-          new Worker("./audio-worklets/unison-detune.ts").promise,
+          new Worker("./audio-worklets/unison.ts").promise,
           new Worker("./audio-worklets/white-noise.ts").promise,
         ]);
       }
@@ -81,18 +81,14 @@ namespace Salvation {
       ) {
         const maxVoices = 16;
         for (let i = 0; i < maxVoices; ++i) {
-          const detuneNode = new AudioWorkletNode(
-            audioContext,
-            "unison-detune",
-            {
-              channelCount: 1,
-              numberOfInputs: 0,
-              numberOfOutputs: 2,
-              parameterData: {
-                index: i,
-              },
-            }
-          );
+          const unisonNode = new AudioWorkletNode(audioContext, "unison", {
+            channelCount: 1,
+            numberOfInputs: 0,
+            numberOfOutputs: 2,
+            parameterData: {
+              index: i,
+            },
+          });
           const oscNode = new OscillatorNode(this.audioContext, {
             type: "sawtooth",
             frequency: 0,
@@ -101,16 +97,16 @@ namespace Salvation {
             gain: 0,
           });
           this.detuneKnob.constantNode.connect(
-            detuneNode.parameters.get("detune")!
+            unisonNode.parameters.get("detune")!
           );
           this.blendKnob.constantNode.connect(
-            detuneNode.parameters.get("blend")!
+            unisonNode.parameters.get("blend")!
           );
           this.voicesKnob.constantNode.connect(
-            detuneNode.parameters.get("voices")!
+            unisonNode.parameters.get("voices")!
           );
-          detuneNode.connect(oscNode.detune, 0);
-          detuneNode.connect(blendNode.gain, 1);
+          unisonNode.connect(oscNode.detune, 0);
+          unisonNode.connect(blendNode.gain, 1);
           this.frequencyKnob.constantNode.connect(oscNode.frequency);
           oscNode.connect(blendNode);
           blendNode.connect(this.levelKnob.gainNode);
@@ -121,7 +117,7 @@ namespace Salvation {
 
       readonly bypass = new Bypass(this.audioContext, this.destinationNode);
       readonly frequencyKnob = new Knob(this.audioContext, "frequency", 440);
-      readonly voicesKnob = new Knob(this.audioContext, "voices");
+      readonly voicesKnob = new Knob(this.audioContext, "voices", 1);
       readonly detuneKnob = new Knob(this.audioContext, "detune");
       readonly blendKnob = new Knob(this.audioContext, "blend");
       readonly phaseKnob = new Knob(this.audioContext, "phase");
@@ -504,7 +500,7 @@ namespace Salvation {
             margin: "8px 0",
           }}
         >
-          <Knob knob={state.oscB.voicesKnob} />
+          <LcdPanel knob={state.oscB.voicesKnob} min={1} max={16} />
           <Knob knob={state.oscB.detuneKnob} />
           <Knob knob={state.oscB.blendKnob} />
 
