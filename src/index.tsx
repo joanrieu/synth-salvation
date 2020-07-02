@@ -1,7 +1,7 @@
-import { autorun, observable, when } from "mobx";
+import { autorun, observable } from "mobx";
 import { observer } from "mobx-react";
 import "mobx-react-lite/batchingForReactDom";
-import React, { ReactChild, ReactChildren, CSSProperties } from "react";
+import React from "react";
 import ReactDOM from "react-dom";
 
 namespace Salvation {
@@ -79,8 +79,8 @@ namespace Salvation {
         readonly audioContext: AudioContext,
         readonly destinationNode: AudioNode
       ) {
-        const maxCount = 16;
-        for (let i = 0; i < maxCount; ++i) {
+        const maxVoices = 16;
+        for (let i = 0; i < maxVoices; ++i) {
           const detuneNode = new AudioWorkletNode(
             audioContext,
             "unison-detune",
@@ -106,8 +106,8 @@ namespace Salvation {
           this.blendKnob.constantNode.connect(
             detuneNode.parameters.get("blend")!
           );
-          this.unisonKnob.constantNode.connect(
-            detuneNode.parameters.get("count")!
+          this.voicesKnob.constantNode.connect(
+            detuneNode.parameters.get("voices")!
           );
           detuneNode.connect(oscNode.detune, 0);
           detuneNode.connect(blendNode.gain, 1);
@@ -120,8 +120,8 @@ namespace Salvation {
       }
 
       readonly bypass = new Bypass(this.audioContext, this.destinationNode);
-      readonly frequencyKnob = new Knob(this.audioContext, "frequency");
-      readonly unisonKnob = new Knob(this.audioContext, "unison");
+      readonly frequencyKnob = new Knob(this.audioContext, "frequency", 440);
+      readonly voicesKnob = new Knob(this.audioContext, "voices");
       readonly detuneKnob = new Knob(this.audioContext, "detune");
       readonly blendKnob = new Knob(this.audioContext, "blend");
       readonly phaseKnob = new Knob(this.audioContext, "phase");
@@ -226,7 +226,12 @@ namespace Salvation {
     }
 
     export class Knob {
-      constructor(readonly audioContext: AudioContext, readonly name: string) {
+      constructor(
+        readonly audioContext: AudioContext,
+        readonly name: string,
+        defaultValue = 0
+      ) {
+        this.value = defaultValue;
         this.constantNode.connect(this.gainNode.gain);
         this.constantNode.start();
         autorun(() => {
@@ -234,7 +239,7 @@ namespace Salvation {
         });
       }
 
-      @observable value = 0;
+      @observable value: number;
 
       readonly constantNode = new ConstantSourceNode(this.audioContext);
 
@@ -468,7 +473,7 @@ namespace Salvation {
             margin: "8px 0",
           }}
         >
-          <Knob knob={state.oscA.unisonKnob} />
+          <LcdPanel knob={state.oscA.voicesKnob} min={1} max={16} />
           <Knob knob={state.oscA.detuneKnob} />
           <Knob knob={state.oscA.blendKnob} />
 
@@ -499,7 +504,7 @@ namespace Salvation {
             margin: "8px 0",
           }}
         >
-          <Knob knob={state.oscB.unisonKnob} />
+          <Knob knob={state.oscB.voicesKnob} />
           <Knob knob={state.oscB.detuneKnob} />
           <Knob knob={state.oscB.blendKnob} />
 
@@ -678,6 +683,71 @@ namespace Salvation {
               </Circle>
             </Circle>
             <Label>{knob.name}</Label>
+          </div>
+        );
+      }
+    );
+
+    const LcdPanel = observer(
+      ({ knob, min, max }: { knob: Audio.Knob; min: number; max: number }) => {
+        const Button = ({
+          children,
+          style,
+          ...props
+        }: React.DetailedHTMLProps<
+          React.ButtonHTMLAttributes<HTMLButtonElement>,
+          HTMLButtonElement
+        >) => (
+          <button
+            style={{
+              gridArea: "u",
+              padding: "0 4px",
+              background: "#555",
+              border: "none",
+              color: "#ccc",
+              ...style,
+            }}
+            {...props}
+          >
+            {children}
+          </button>
+        );
+
+        return (
+          <div
+            style={{
+              display: "grid",
+              placeItems: "center stretch",
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateRows: "1fr 1fr",
+                gridTemplateColumns: "1fr auto",
+                gridTemplateAreas: '"n u" "n d"',
+                background: "#222",
+                padding: 1,
+                gridGap: 1,
+                fontSize: 10,
+              }}
+            >
+              <div style={{ gridArea: "n", placeSelf: "center", fontSize: 14 }}>
+                {knob.value}
+              </div>
+              <Button
+                style={{ gridArea: "u" }}
+                onClick={() => (knob.value = Math.min(max, knob.value + 1))}
+              >
+                +
+              </Button>
+              <Button
+                style={{ gridArea: "d" }}
+                onClick={() => (knob.value = Math.max(min, knob.value - 1))}
+              >
+                -
+              </Button>
+            </div>
           </div>
         );
       }

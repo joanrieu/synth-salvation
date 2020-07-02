@@ -8,19 +8,19 @@ class UnisonDetune extends AudioWorkletProcessor {
       detune: detuneBase,
       blend,
       index: [index],
-      count: [count],
+      voices: [voices],
     } = parameters;
     const [[detune], [gain]] = outputs;
-    const center = (count - 1) / 2;
+    const center = (voices - 1) / 2;
     const position = index - center;
     const isCenter = Math.abs(position) < 1;
-    if (index < count) {
+    if (index < voices) {
       for (let i = 0; i < detune.length; ++i) {
         detune[i] =
           ((detuneBase[i] ?? detuneBase[0]) * position) / Math.max(1, center);
       }
       for (let i = 0; i < gain.length; ++i) {
-        gain[i] = (isCenter ? 1 : blend[i] ?? blend[0]) / count;
+        gain[i] = (isCenter ? 1 : blend[i] ?? blend[0]) / voices;
       }
     } else {
       detune.fill(0);
@@ -44,7 +44,7 @@ class UnisonDetune extends AudioWorkletProcessor {
         automationRate: "k-rate",
       },
       {
-        name: "count",
+        name: "voices",
         automationRate: "k-rate",
         minValue: 1,
       },
