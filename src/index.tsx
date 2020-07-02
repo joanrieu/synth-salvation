@@ -1,7 +1,7 @@
 import { autorun, observable } from "mobx";
 import { observer } from "mobx-react";
 import "mobx-react-lite/batchingForReactDom";
-import React from "react";
+import React, { useRef, useLayoutEffect } from "react";
 import ReactDOM from "react-dom";
 
 namespace Salvation {
@@ -18,6 +18,9 @@ namespace Salvation {
       noise!: Noise;
       oscA!: Oscillator;
       oscB!: Oscillator;
+
+      waveA: Wave = new SineWave();
+      waveB: Wave = new SineWave();
 
       async init() {
         // TODO handle context creation failure
@@ -242,6 +245,18 @@ namespace Salvation {
       readonly gainNode = new GainNode(this.audioContext, {
         gain: 0,
       });
+    }
+
+    export abstract class Wave {
+      get(t: number) {
+        return 0;
+      }
+    }
+
+    export class SineWave extends Wave {
+      get(t: number) {
+        return Math.sin(t * 2 * Math.PI);
+      }
     }
   }
 
@@ -470,7 +485,7 @@ namespace Salvation {
             gridTemplateRows: "1fr auto",
           }}
         >
-          <WavePanel osc={state.oscA} />
+          <WavePanel wave={state.waveA} />
           <div
             style={{
               display: "grid",
@@ -509,7 +524,7 @@ namespace Salvation {
             gridTemplateRows: "1fr auto",
           }}
         >
-          <WavePanel osc={state.oscB} />
+          <WavePanel wave={state.waveB} />
           <div
             style={{
               display: "grid",
@@ -776,16 +791,59 @@ namespace Salvation {
       }
     );
 
-    const WavePanel = ({ osc }: { osc: Audio.Oscillator }) => (
-      <div
-        style={{
-          background: "#333",
-          border: "2px solid #111",
-          boxShadow: "0 0 1px white",
-          borderRadius: 2,
-        }}
-      ></div>
-    );
+    const WavePanel = ({ wave }: { wave: Audio.Wave }) => {
+      const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+      useLayoutEffect(() => {
+        requestAnimationFrame(() => {
+          const ctx = canvasRef.current!.getContext("2d")!;
+          let {
+            clientWidth: width,
+            clientHeight: height,
+          } = ctx.canvas.parentElement!;
+          ctx.canvas.width = width;
+          ctx.canvas.height = height;
+          ctx.clearRect(0, 0, width, height);
+
+          ctx.translate(width / 2, height / 2);
+          ctx.scale(0.95, height / width);
+          ctx.translate(-width / 2, -height / 2);
+
+          ctx.beginPath();
+          ctx.moveTo(0, height / 2);
+          for (let t = 0; t <= 1; t += 1e-3) {
+            ctx.lineTo(width * t, (height / 2) * (1 + wave.get(t)));
+          }
+          ctx.lineTo(width, height / 2);
+
+          const gradient = ctx.createLinearGradient(0, 0, 0, height);
+          gradient.addColorStop(0, "#9c3fe755");
+          gradient.addColorStop(0.5, "#9c3fe711");
+          gradient.addColorStop(1, "#9c3fe755");
+          ctx.fillStyle = gradient;
+          ctx.fill();
+
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "#9c3fe7";
+          ctx.stroke();
+        });
+      }, [canvasRef]);
+
+      return (
+        <div
+          style={{
+            background: "#333",
+            border: "2px solid #111",
+            boxShadow: "0 0 1px white",
+            borderRadius: 2,
+            display: "flex",
+            overflow: "hidden",
+          }}
+        >
+          <canvas ref={canvasRef} style={{ flex: 1 }} />
+        </div>
+      );
+    };
 
     const FilterPanel = () => (
       <div
