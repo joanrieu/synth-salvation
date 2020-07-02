@@ -74,7 +74,7 @@ namespace Salvation {
       readonly knob = new Knob(this.audioContext, "master");
     }
 
-    class Oscillator {
+    export class Oscillator {
       constructor(
         readonly audioContext: AudioContext,
         readonly destinationNode: AudioNode
@@ -378,6 +378,8 @@ namespace Salvation {
             padding: 8,
             backgroundColor: "#666",
             border: "1px solid #888",
+            display: "grid",
+            gridTemplateRows: "auto 1fr",
             ...style,
           }}
           {...props}
@@ -385,8 +387,9 @@ namespace Salvation {
           <header
             style={{
               padding: 4,
+              marginBottom: 4,
               display: "grid",
-              grid: "auto / auto 1fr",
+              gridTemplateColumns: "auto 1fr",
               gridGap: 8,
               placeItems: "center left",
               background: "#555",
@@ -406,7 +409,7 @@ namespace Salvation {
               {title}
             </h2>
           </header>
-          {children}
+          {React.Children.only(children)}
         </section>
       )
     );
@@ -464,24 +467,32 @@ namespace Salvation {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(5, 1fr)",
-            gridGap: 8,
-            margin: "8px 0",
+            gridTemplateRows: "1fr auto",
           }}
         >
-          <LcdPanel knob={state.oscA.voicesKnob} min={1} max={16} />
-          <Knob knob={state.oscA.detuneKnob} />
-          <Knob knob={state.oscA.blendKnob} />
+          <WavePanel osc={state.oscA} />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(5, 1fr)",
+              gridGap: 8,
+              margin: "8px 0",
+            }}
+          >
+            <LcdPanel knob={state.oscA.voicesKnob} min={1} max={16} />
+            <Knob knob={state.oscA.detuneKnob} />
+            <Knob knob={state.oscA.blendKnob} />
 
-          <Knob knob={state.oscA.phaseKnob} />
-          <Knob knob={state.oscA.randKnob} />
+            <Knob knob={state.oscA.phaseKnob} />
+            <Knob knob={state.oscA.randKnob} />
 
-          <Knob knob={state.oscA.wtPosKnob} />
+            <Knob knob={state.oscA.wtPosKnob} />
 
-          <Knob knob={state.oscA.levelKnob} />
-          <Knob knob={state.oscA.panKnob} />
+            <Knob knob={state.oscA.levelKnob} />
+            <Knob knob={state.oscA.panKnob} />
 
-          <Knob knob={state.oscA.frequencyKnob} />
+            <Knob knob={state.oscA.frequencyKnob} />
+          </div>
         </div>
       </OscillatorSectionItem>
     ));
@@ -495,24 +506,32 @@ namespace Salvation {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(5, 1fr)",
-            gridGap: 8,
-            margin: "8px 0",
+            gridTemplateRows: "1fr auto",
           }}
         >
-          <LcdPanel knob={state.oscB.voicesKnob} min={1} max={16} />
-          <Knob knob={state.oscB.detuneKnob} />
-          <Knob knob={state.oscB.blendKnob} />
+          <WavePanel osc={state.oscB} />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(5, 1fr)",
+              gridGap: 8,
+              margin: "8px 0",
+            }}
+          >
+            <LcdPanel knob={state.oscB.voicesKnob} min={1} max={16} />
+            <Knob knob={state.oscB.detuneKnob} />
+            <Knob knob={state.oscB.blendKnob} />
 
-          <Knob knob={state.oscB.phaseKnob} />
-          <Knob knob={state.oscB.randKnob} />
+            <Knob knob={state.oscB.phaseKnob} />
+            <Knob knob={state.oscB.randKnob} />
 
-          <Knob knob={state.oscB.wtPosKnob} />
+            <Knob knob={state.oscB.wtPosKnob} />
 
-          <Knob knob={state.oscB.levelKnob} />
-          <Knob knob={state.oscB.panKnob} />
+            <Knob knob={state.oscB.levelKnob} />
+            <Knob knob={state.oscB.panKnob} />
 
-          <Knob knob={state.oscB.frequencyKnob} />
+            <Knob knob={state.oscB.frequencyKnob} />
+          </div>
         </div>
       </OscillatorSectionItem>
     ));
@@ -526,17 +545,25 @@ namespace Salvation {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gridGap: 8,
-            margin: "8px 0",
+            gridTemplateRows: "1fr auto",
           }}
         >
-          <Knob knob={state.filter.cutoffKnob} />
-          <Knob knob={state.filter.resKnob} />
-          <Knob knob={state.filter.panKnob} />
-          <Knob knob={state.filter.driveKnob} />
-          <Knob knob={state.filter.fatKnob} />
-          <Knob knob={state.filter.mixKnob} />
+          <FilterPanel />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gridGap: 8,
+              margin: "8px 0",
+            }}
+          >
+            <Knob knob={state.filter.cutoffKnob} />
+            <Knob knob={state.filter.resKnob} />
+            <Knob knob={state.filter.panKnob} />
+            <Knob knob={state.filter.driveKnob} />
+            <Knob knob={state.filter.fatKnob} />
+            <Knob knob={state.filter.mixKnob} />
+          </div>
         </div>
       </OscillatorSectionItem>
     );
@@ -747,6 +774,28 @@ namespace Salvation {
           </div>
         );
       }
+    );
+
+    const WavePanel = ({ osc }: { osc: Audio.Oscillator }) => (
+      <div
+        style={{
+          background: "#333",
+          border: "2px solid #111",
+          boxShadow: "0 0 1px white",
+          borderRadius: 2,
+        }}
+      ></div>
+    );
+
+    const FilterPanel = () => (
+      <div
+        style={{
+          background: "#333",
+          border: "2px solid #111",
+          boxShadow: "0 0 1px white",
+          borderRadius: 2,
+        }}
+      ></div>
     );
   }
 }
